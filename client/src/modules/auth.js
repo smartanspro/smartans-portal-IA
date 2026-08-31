@@ -25,7 +25,6 @@ export function mountLogin(container, onLogin) {
       <div class="login-card">
         <div class="login-logo">
           <img src="/logo.png" alt="SMARTANS" style="filter:brightness(0) invert(1);" />
-          <span class="m2">GROUP</span>
         </div>
         <h2>Portal de Operaciones</h2>
         <p class="sub">Ingresá con tu usuario de Smartans para continuar.</p>

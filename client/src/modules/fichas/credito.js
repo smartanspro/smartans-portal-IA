@@ -60,7 +60,9 @@ function tituloCorto(operacion) {
 }
 
 function logoBlockHtml() {
-  return '<img class="doc-logo-img" src="/logo.png" alt="SMARTANS" /><div class="doc-logo-text"><span class="m1">SMARTANS</span><span class="m2">GROUP</span></div>';
+  // El PNG ya trae todo (◆ + "SMARTANS REAL ESTATE") — agregar texto
+  // "SMARTANS GROUP" al lado duplicaba el logo.
+  return '<img class="doc-logo-img" src="/logo.png" alt="SMARTANS" />';
 }
 
 function buildPreviewHTML(d) {
