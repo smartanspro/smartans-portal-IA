@@ -12,7 +12,9 @@
     "dev:client": "npm run dev --workspace client",
     "migrate": "npm run migrate --workspace server",
     "test": "npm test --workspace server",
-    "build:client": "npm run build --workspace client"
+    "build:client": "npm run build --workspace client",
+    "build": "npm run build:client",
+    "start": "npm start --workspace server"
   },
   "engines": {
     "node": ">=22.5.0"
