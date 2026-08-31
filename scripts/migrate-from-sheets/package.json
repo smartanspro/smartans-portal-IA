@@ -1,0 +1,12 @@
+{
+  "name": "migrate-from-sheets",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "migrate": "node migrate.mjs"
+  },
+  "dependencies": {
+    "csv-parse": "^5.6.0"
+  }
+}
