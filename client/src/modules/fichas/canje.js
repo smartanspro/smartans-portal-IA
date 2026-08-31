@@ -15,6 +15,15 @@ export const BLANK = {
   tituloL3: 'Garantizá tu inversión a través de la tierra.',
 };
 
+export const EXAMPLE = {
+  ...BLANK,
+  nombreProyecto: 'Ugarte 2729', direccion: 'Ugarte 2729, Belgrano, CABA', zona: 'Belgrano, CABA',
+  ubicacionDescripcion: 'Belgrano, a metros de Av. Cabildo y Av. Congreso. Zona consolidada, alta demanda y excelente conectividad.',
+  costoTierra: 820000, superficieVendible: 1360, canjeMin: 26, canjeBase: 28, canjeMax: 30,
+  precioPozo: 2800, precioTerminado: 3200, inversionMinima: 50000,
+  web: 'https://www.smartans.pro', email: 'inmuebles@smartans.pro', whatsapp: '5491135252013',
+};
+
 function calcular(d) {
   const base = [
     { k: 'min', canje: n(d.canjeMin) },
@@ -121,7 +130,16 @@ function buildPreviewHTML(d, c, heroDataURL) {
 const FORM_HTML = `
   <div class="editor-shell">
     <div class="formpanel">
-      <div class="editor-head"><h1>Canje de tierra</h1></div>
+      <div class="editor-head" style="justify-content:space-between;">
+        <h1>Canje de tierra</h1>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" type="button" id="cjBtnCancel">Cancelar</button>
+          <button class="btn btn-primary" type="button" id="cjBtnSave">Guardar</button>
+        </div>
+      </div>
+      <div class="quickrow" style="display:flex;gap:8px;padding-bottom:14px;">
+        <button class="btn btn-small" type="button" id="cjBtnExample">✦ Cargar ejemplo</button>
+      </div>
       <form id="cjForm" autocomplete="off">
         <fieldset>
           <legend>Proyecto y ubicación</legend>
@@ -183,47 +201,39 @@ function buildWhatsappText(d, driveLink) {
   return `¡Hola a todos!\n\nLes paso la ficha del proyecto "${d.nombreProyecto || 'el proyecto'}".\n\n${linkBlock}Cualquier duda me consultan.\n\nSaludos!`;
 }
 
-export function mountCanjeEditor(viewContainer, ficha, onSaved) {
+/** onDone(savedFichaOrNull) se llama después de Guardar (con la ficha) o
+ *  Cancelar (con null) — quien llama decide qué hacer (volver al listado). */
+export function mountCanjeEditor(viewContainer, ficha, onDone) {
   viewContainer.innerHTML = FORM_HTML;
   let state = ficha?.data && Object.keys(ficha.data).length ? { ...BLANK, ...ficha.data } : { ...BLANK };
   let heroDataURL = ficha?.hero ?? null;
   let heroChanged = false;
-  let saveTimer = null;
 
   function render() {
     const c = calcular(state);
     viewContainer.querySelector('#previewCanje').innerHTML = buildPreviewHTML(state, c, heroDataURL);
   }
 
-  function scheduleSave() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      const payload = { tipo: 'canje', nombre: state.nombreProyecto || 'Ficha sin título', data: state };
-      if (heroChanged) {
-        payload.hero = heroDataURL; // dataURL nueva o null si se sacó
-        heroChanged = false;
-      }
-      try {
-        const saved = ficha?.id ? await fichasApi.update(ficha.id, payload) : await fichasApi.create(payload);
-        if (!ficha?.id) ficha = saved;
-        onSaved?.(saved);
-      } catch (err) {
-        showToast('No se pudo guardar: ' + err.message, 'danger');
-      }
-    }, 500);
+  function bindFormFromState() {
+    const form = viewContainer.querySelector('#cjForm');
+    [...form.elements].forEach((el) => {
+      if (el.name && state[el.name] !== undefined) el.value = state[el.name];
+    });
   }
 
-  const form = viewContainer.querySelector('#cjForm');
-  [...form.elements].forEach((el) => {
-    if (el.name && state[el.name] !== undefined) el.value = state[el.name];
+  viewContainer.querySelector('#cjBtnExample').addEventListener('click', () => {
+    state = { ...EXAMPLE };
+    bindFormFromState();
+    render();
+    showToast('Ejemplo cargado.');
   });
 
+  const form = viewContainer.querySelector('#cjForm');
   form.addEventListener('input', (e) => {
     const t = e.target;
     if (!t.name) return;
     state[t.name] = t.type === 'number' ? (t.value === '' ? '' : parseFloat(t.value)) : t.value;
     render();
-    scheduleSave();
   });
 
   viewContainer.querySelector('#cj-heroFile').addEventListener('change', (e) => {
@@ -234,7 +244,6 @@ export function mountCanjeEditor(viewContainer, ficha, onSaved) {
       heroDataURL = reader.result;
       heroChanged = true;
       render();
-      scheduleSave();
     };
     reader.readAsDataURL(file);
   });
@@ -250,5 +259,22 @@ export function mountCanjeEditor(viewContainer, ficha, onSaved) {
     enviarPorWhatsApp(ficha.id, 'previewCanje', state.nombreProyecto || 'ficha_canje', '#0a1a2a', (link) => buildWhatsappText(state, link));
   });
 
+  viewContainer.querySelector('#cjBtnCancel').addEventListener('click', () => onDone?.(null));
+  viewContainer.querySelector('#cjBtnSave').addEventListener('click', async () => {
+    const btn = viewContainer.querySelector('#cjBtnSave');
+    btn.disabled = true;
+    const payload = { tipo: 'canje', nombre: state.nombreProyecto || 'Ficha sin título', data: state };
+    if (heroChanged) payload.hero = heroDataURL; // dataURL nueva, o null si se sacó
+    try {
+      const saved = ficha?.id ? await fichasApi.update(ficha.id, payload) : await fichasApi.create(payload);
+      showToast('Ficha guardada.');
+      onDone?.(saved);
+    } catch (err) {
+      showToast('No se pudo guardar: ' + err.message, 'danger');
+      btn.disabled = false;
+    }
+  });
+
+  bindFormFromState();
   render();
 }

@@ -14,7 +14,9 @@ function renderView(shell, view, extra) {
   if (view === 'fichas-list') {
     mountFichasList(el, { onOpenEditor: ({ tipo, ficha }) => shell.navigateTo('ficha-editor', { tipo, ficha }) });
   } else if (view === 'ficha-editor') {
-    mountFichaEditor(el, extra, () => {});
+    // se llama al Guardar (con la ficha) o al Cancelar (con null) — en
+    // los dos casos volvemos al listado.
+    mountFichaEditor(el, extra, () => shell.navigateTo('fichas-list'));
   } else if (view === 'usuarios') {
     mountUsuarios(el);
   } else if (view === 'notificaciones') {

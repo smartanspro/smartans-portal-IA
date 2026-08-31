@@ -21,6 +21,30 @@ export const BLANK = {
   montoSimulado: '',
 };
 
+export const EXAMPLE = {
+  ...BLANK,
+  operacion: 'Edificio Lavalle 796, CABA (Primer Desembolso)', fechaEstimada: '2026-08-06',
+  tasacionGarantia: 7000000, primerDesembolso: 1500000, lineaCreditoTotal: 3650000,
+  plazoMeses: 36, inversionMinima: 25000, ubicacion: 'Lavalle y Esmeralda, Microcentro, CABA',
+  tasas: [{ desde: 25000, tna: 10 }, { desde: 50000, tna: 11 }, { desde: 100000, tna: 12 }],
+  garantiaInfo:
+    'Edificio de 3.700 m² cubiertos ubicado en la esquina de Lavalle y Esmeralda. Cuenta con 7 plantas de oficinas de entre 300 m² y 450 m², locales comerciales en Planta Baja y depósitos en el subsuelo.\n\nSe encuentra en el epicentro del Microcentro porteño, a 2 cuadras del obelisco, 1 cuadra de Av. Corrientes y a 6 cuadras de Av. Paseo Colón con acceso inmediato a los principales accesos, estaciones de subte y líneas colectivos lo que garantiza una excelente conectividad con toda la Ciudad de Buenos Aires y la Provincia.',
+  montoSimulado: 100000,
+};
+
+export const EXAMPLE_2 = {
+  ...BLANK,
+  operacion: 'Shale, Vaca Muerta (Décimo Primer Desembolso)', nombreInterno: 'Crédito con Garantía II', fechaEstimada: '2026-08-24',
+  tasacionGarantia: 5500000, tasacionProyectada: 8000000,
+  primerDesembolsoLabel: 'Décimo Primer Desembolso', primerDesembolso: 150000, lineaCreditoTotal: 3000000,
+  plazoMeses: 24, inversionMinima: 25000, ubicacion: 'Añelo, Neuquén (Vaca Muerta)',
+  tasas: [{ desde: 25000, tna: 10 }, { desde: 50000, tna: 11 }, { desde: 100000, tna: 12 }],
+  garantiaInfo:
+    '3 Módulos de departamentos de 307 m² cubiertos y 100 m² semi-cubiertos totales, sobre un lote de 360 m², 2 Módulos de departamentos con un grado de avance del 90% y 3 terrenos aptos multifamiliar de 360 m² para replicar edificios con departamentos ubicados en zona estratégica de Añelo (Vaca Muerta).',
+  garantiaInfoExtra: 'Los desembolsos del crédito se irán realizando a medida que avance la obra, manteniendo siempre un límite de aforo del 50% del valor del inmueble.',
+  montoSimulado: 100000,
+};
+
 function cloneState(base) {
   return {
     ...base,
@@ -118,7 +142,17 @@ function buildWhatsappText(d, driveLink) {
 const FORM_HTML = `
   <div class="editor-shell">
     <div class="formpanel">
-      <div class="editor-head"><h1>Crédito con garantía</h1></div>
+      <div class="editor-head" style="justify-content:space-between;">
+        <h1>Crédito con garantía</h1>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" type="button" id="crBtnCancel">Cancelar</button>
+          <button class="btn btn-primary" type="button" id="crBtnSave">Guardar</button>
+        </div>
+      </div>
+      <div class="quickrow" style="display:flex;gap:8px;padding-bottom:14px;">
+        <button class="btn btn-small" type="button" id="crBtnExample">✦ Cargar ejemplo (Lavalle 796)</button>
+        <button class="btn btn-small" type="button" id="crBtnExample2">✦ Cargar Shale, Vaca Muerta</button>
+      </div>
       <form id="crForm" autocomplete="off">
         <fieldset>
           <legend>Operación</legend>
@@ -175,10 +209,11 @@ const FORM_HTML = `
     </div>
   </div>`;
 
-export function mountCreditoEditor(viewContainer, ficha, onSaved) {
+/** onDone(savedFichaOrNull) se llama después de Guardar (con la ficha) o
+ *  Cancelar (con null) — quien llama decide qué hacer (volver al listado). */
+export function mountCreditoEditor(viewContainer, ficha, onDone) {
   viewContainer.innerHTML = FORM_HTML;
   let state = ficha?.data && Object.keys(ficha.data).length ? cloneState({ ...BLANK, ...ficha.data }) : cloneState(BLANK);
-  let saveTimer = null;
 
   function renderTasasRows() {
     const wrap = viewContainer.querySelector('#crTasasRows');
@@ -207,20 +242,6 @@ export function mountCreditoEditor(viewContainer, ficha, onSaved) {
     viewContainer.querySelector('#previewCredito').innerHTML = buildPreviewHTML(state);
   }
 
-  function scheduleSave() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      const payload = { tipo: 'credito', nombre: state.operacion || 'Ficha sin título', data: state };
-      try {
-        const saved = ficha?.id ? await fichasApi.update(ficha.id, payload) : await fichasApi.create(payload);
-        if (!ficha?.id) ficha = saved;
-        onSaved?.(saved);
-      } catch (err) {
-        showToast('No se pudo guardar: ' + err.message, 'danger');
-      }
-    }, 500);
-  }
-
   function bindFormFromState() {
     const form = viewContainer.querySelector('#crForm');
     [...form.elements].forEach((el) => {
@@ -230,12 +251,20 @@ export function mountCreditoEditor(viewContainer, ficha, onSaved) {
     renderFaqsRows();
   }
 
+  function loadExample(example, label) {
+    state = cloneState(example);
+    bindFormFromState();
+    render();
+    showToast(`Ejemplo cargado (${label}).`);
+  }
+  viewContainer.querySelector('#crBtnExample').addEventListener('click', () => loadExample(EXAMPLE, 'Lavalle 796'));
+  viewContainer.querySelector('#crBtnExample2').addEventListener('click', () => loadExample(EXAMPLE_2, 'Shale, Vaca Muerta'));
+
   viewContainer.querySelector('#crForm').addEventListener('input', (e) => {
     const t = e.target;
     if (!t.name) return;
     state[t.name] = t.type === 'number' ? (t.value === '' ? '' : parseFloat(t.value)) : t.value;
     render();
-    scheduleSave();
   });
 
   viewContainer.querySelector('#crTasasRows').addEventListener('input', (e) => {
@@ -243,7 +272,6 @@ export function mountCreditoEditor(viewContainer, ficha, onSaved) {
     if (!t.matches('.dyn-tasa-input')) return;
     state.tasas[+t.dataset.i][t.dataset.field] = t.value === '' ? '' : parseFloat(t.value);
     render();
-    scheduleSave();
   });
   viewContainer.querySelector('#crTasasRows').addEventListener('click', (e) => {
     const t = e.target;
@@ -251,12 +279,10 @@ export function mountCreditoEditor(viewContainer, ficha, onSaved) {
     state.tasas.splice(+t.dataset.i, 1);
     renderTasasRows();
     render();
-    scheduleSave();
   });
   viewContainer.querySelector('#crAddTasa').addEventListener('click', () => {
     state.tasas.push({ desde: '', tna: '' });
     renderTasasRows();
-    scheduleSave();
   });
 
   viewContainer.querySelector('#crFaqsRows').addEventListener('input', (e) => {
@@ -264,7 +290,6 @@ export function mountCreditoEditor(viewContainer, ficha, onSaved) {
     if (!t.matches('.dyn-faq-input')) return;
     state.faqs[+t.dataset.i][t.dataset.field] = t.value;
     render();
-    scheduleSave();
   });
   viewContainer.querySelector('#crFaqsRows').addEventListener('click', (e) => {
     const t = e.target;
@@ -272,12 +297,10 @@ export function mountCreditoEditor(viewContainer, ficha, onSaved) {
     state.faqs.splice(+t.dataset.i, 1);
     renderFaqsRows();
     render();
-    scheduleSave();
   });
   viewContainer.querySelector('#crAddFaq').addEventListener('click', () => {
     state.faqs.push({ q: '', a: '' });
     renderFaqsRows();
-    scheduleSave();
   });
 
   viewContainer.querySelector('#crBtnExport').addEventListener('click', () => {
@@ -289,6 +312,21 @@ export function mountCreditoEditor(viewContainer, ficha, onSaved) {
       return;
     }
     enviarPorWhatsApp(ficha.id, 'previewCredito', state.operacion || 'ficha_credito', '#ffffff', (link) => buildWhatsappText(state, link));
+  });
+
+  viewContainer.querySelector('#crBtnCancel').addEventListener('click', () => onDone?.(null));
+  viewContainer.querySelector('#crBtnSave').addEventListener('click', async () => {
+    const btn = viewContainer.querySelector('#crBtnSave');
+    btn.disabled = true;
+    const payload = { tipo: 'credito', nombre: state.operacion || 'Ficha sin título', data: state };
+    try {
+      const saved = ficha?.id ? await fichasApi.update(ficha.id, payload) : await fichasApi.create(payload);
+      showToast('Ficha guardada.');
+      onDone?.(saved);
+    } catch (err) {
+      showToast('No se pudo guardar: ' + err.message, 'danger');
+      btn.disabled = false;
+    }
   });
 
   bindFormFromState();
